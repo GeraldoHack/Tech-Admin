@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TECH SERVICES - Painel Admin</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); }
+        .gradient-header { background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); }
+        .stats-card { transition: all 0.3s ease; }
+        .stats-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.2); }
+        .hidden { display: none; }
+        .flex { display: flex; }
+        .pulse-animation { animation: pulse 2s infinite; }
+        .btn-loading { opacity: 0.7; pointer-events: none; }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div id="app">
+        <!-- Loading -->
+        <div id="loading" class="fixed inset-0 bg-white flex items-center justify-center z-50">
+            <div class="text-center">
+                <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p class="text-gray-600">Carregando painel TECH SERVICES...</p>
+            </div>
+        </div>
+
+        <!-- Main App -->
+        <div id="main-app" class="min-h-screen">
+            <!-- Header -->
+            <div class="gradient-header shadow-2xl border-b border-blue-300 sticky top-0 z-40">
+                <div class="px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm pulse-animation">
+                            <span class="text-white font-bold text-xl">TS</span>
+                        </div>
+                        <div>
+                            <h1 class="font-bold text-white text-xl">TECH SERVICES Admin</h1>
+                            <p class="text-xs text-blue-100">Painel de Controle</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-white text-sm bg-white/20 px-3 py-1 rounded-full">Admin</span>
+                        <button onclick="refreshData()" class="p-3 bg-white/20 rounded-xl text-white hover:bg-white/30 transition-all backdrop-blur-sm" title="Atualizar">
+                            <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="bg-white/80 backdrop-blur-sm shadow-lg border-b border-blue-200">
+                <div class="flex overflow-x-auto px-6 py-3 space-x-3">
+                    <button onclick="showTab('dashboard')" class="flex-shrink-0 px-6 py-3 rounded-2xl bg-blue-100 text-blue-700 border-2 border-blue-200 font-semibold flex items-center">
+                        <i data-lucide="bar-chart-3" class="w-5 h-5 mr-2"></i>Dashboard
+                    </button>
+                    <button onclick="showTab('packages')" class="flex-shrink-0 px-6 py-3 rounded-2xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-all font-semibold flex items-center">
+                        <i data-lucide="package" class="w-5 h-5 mr-2"></i>Pacotes
+                    </button>
+                    <button onclick="showTab('users')" class="flex-shrink-0 px-6 py-3 rounded-2xl text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-all font-semibold flex items-center">
+                        <i data-lucide="users" class="w-5 h-5 mr-2"></i>Usuários
+                    </button>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-6">
+                <!-- Dashboard Tab -->
+                <div id="tab-dashboard" class="space-y-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="stats-card bg-white rounded-2xl p-6 shadow-2xl border border-blue-100">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="p-3 bg-green-100 rounded-xl"><i data-lucide="dollar-sign" class="w-6 h-6 text-green-600"></i></div>
+                                <span class="text-green-600 text-sm font-semibold px-3 py-1 bg-green-50 rounded-full" id="revenue-change">+0%</span>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2" id="total-revenue">0 MT</h3>
+                            <p class="text-gray-600">Receita Potencial</p>
+                        </div>
+                        <div class="stats-card bg-white rounded-2xl p-6 shadow-2xl border border-blue-100">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="p-3 bg-blue-100 rounded-xl"><i data-lucide="users" class="w-6 h-6 text-blue-600"></i></div>
+                                <span class="text-green-600 text-sm font-semibold px-3 py-1 bg-green-50 rounded-full" id="users-change">+0%</span>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2" id="total-users">0</h3>
+                            <p class="text-gray-600">Total de Usuários</p>
+                        </div>
+                        <div class="stats-card bg-white rounded-2xl p-6 shadow-2xl border border-blue-100">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="p-3 bg-purple-100 rounded-xl"><i data-lucide="bar-chart-3" class="w-6 h-6 text-purple-600"></i></div>
+                                <span class="text-green-600 text-sm font-semibold px-3 py-1 bg-green-50 rounded-full" id="clicks-change">+0%</span>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2" id="total-clicks">0</h3>
+                            <p class="text-gray-600">Cliques em Comprar</p>
+                        </div>
+                        <div class="stats-card bg-white rounded-2xl p-6 shadow-2xl border border-blue-100">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="p-3 bg-red-100 rounded-xl"><i data-lucide="package" class="w-6 h-6 text-red-600"></i></div>
+                                <span class="text-green-600 text-sm font-semibold px-3 py-1 bg-green-50 rounded-full" id="packages-change">+0%</span>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2" id="active-packages">0</h3>
+                            <p class="text-gray-600">Pacotes Ativos</p>
+                        </div>
+                    </div>
+
+                    <!-- Top Packages -->
+                    <div class="bg-white rounded-2xl shadow-2xl p-6 border border-blue-100">
+                        <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                            <i data-lucide="trophy" class="w-6 h-6 mr-3 text-yellow-500"></i>
+                            Pacotes Mais Clicados
+                        </h3>
+                        <div class="space-y-4" id="top-packages">
+                            <div class="text-center py-8 text-gray-500">
+                                <i data-lucide="package" class="w-12 h-12 mx-auto mb-3 text-gray-400"></i>
+                                <p>Carregando pacotes...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Packages Tab -->
+                <div id="tab-packages" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-xl font-bold text-gray-900 flex items-center">
+                            <i data-lucide="package" class="w-6 h-6 mr-3 text-blue-600"></i>
+                            Gerenciar Pacotes
+                        </h2>
+                        <button onclick="showAddPackageModal()" class="gradient-bg text-white px-6 py-3 rounded-2xl text-sm flex items-center shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all">
+                            <i data-lucide="plus" class="w-4 h-4 mr-2"></i>Novo Pacote
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-2xl border border-blue-100 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-blue-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Categoria</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Dados</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Validade</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Preço</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Cliques</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Status</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-blue-100" id="packages-table"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Tab -->
+                <div id="tab-users" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-xl font-bold text-gray-900 flex items-center">
+                            <i data-lucide="users" class="w-6 h-6 mr-3 text-blue-600"></i>
+                            Gestão de Usuários
+                        </h2>
+                        <div class="text-sm text-blue-600 font-semibold px-3 py-1 bg-blue-50 rounded-full" id="users-count">0 usuários</div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-2xl border border-blue-100 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-blue-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Nome</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Telefone</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Email</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Província</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Status</th>
+                                        <th class="px-4 py-3 text-left font-semibold text-blue-700">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-blue-100" id="users-table"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Package Modal -->
+        <div id="add-package-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-blue-200 shadow-2xl">
+                <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                    <i data-lucide="plus" class="w-5 h-5 mr-2 text-blue-600"></i>
+                    Novo Pacote
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">📊 Categoria</label>
+                        <select id="package-category" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                            <option value="Diário">Diário</option>
+                            <option value="Mensal">Mensal</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">💾 Dados (GB)</label>
+                        <input type="text" id="package-data" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" placeholder="Ex: 2, 5, 10">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">⏰ Validade</label>
+                        <input type="text" id="package-period" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" placeholder="Ex: 24h, 7 dias, 30 dias">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">💰 Preço (MT)</label>
+                        <input type="number" id="package-price" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" placeholder="Ex: 50, 100, 500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">🎯 Ícone (Emoji)</label>
+                        <input type="text" id="package-icon" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" placeholder="Ex: ⚡, 📱, 🌐" value="📦">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="package-active" checked class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="package-active" class="ml-3 block text-sm text-gray-900 font-medium">Pacote Ativo</label>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button onclick="hideAddPackageModal()" class="px-4 py-3 border-2 border-gray-300 rounded-xl text-gray-700 text-sm font-medium hover:border-gray-400 transition-all">Cancelar</button>
+                    <button onclick="addPackage()" id="add-package-btn" class="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-medium shadow-lg hover:shadow-xl transition-all">Adicionar Pacote</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Package Modal -->
+        <div id="edit-package-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-md border-2 border-blue-200 shadow-2xl">
+                <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                    <i data-lucide="edit" class="w-5 h-5 mr-2 text-blue-600"></i>
+                    Editar Pacote
+                </h3>
+                <div class="space-y-4">
+                    <input type="hidden" id="edit-package-id">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">📊 Categoria</label>
+                        <select id="edit-package-category" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                            <option value="Diário">Diário</option>
+                            <option value="Mensal">Mensal</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">💾 Dados (GB)</label>
+                        <input type="text" id="edit-package-data" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">⏰ Validade</label>
+                        <input type="text" id="edit-package-period" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">💰 Preço (MT)</label>
+                        <input type="number" id="edit-package-price" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">🎯 Ícone (Emoji)</label>
+                        <input type="text" id="edit-package-icon" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="edit-package-active" class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="edit-package-active" class="ml-3 block text-sm text-gray-900 font-medium">Pacote Ativo</label>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button onclick="hideEditPackageModal()" class="px-4 py-3 border-2 border-gray-300 rounded-xl text-gray-700 text-sm font-medium hover:border-gray-400 transition-all">Cancelar</button>
+                    <button onclick="updatePackage()" id="update-package-btn" class="px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-medium shadow-lg hover:shadow-xl transition-all">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration - MESMA CONFIGURAÇÃO DO APP DO USUÁRIO
+        const firebaseConfig = {
+            apiKey: "AIzaSyD5bBLmXfKX5UZhftxb-T3ufDn-yyZSe_w",
+            authDomain: "felix-59cc9.firebaseapp.com",
+            projectId: "felix-59cc9",
+            storageBucket: "felix-59cc9.firebasestorage.app",
+            messagingSenderId: "395419982595",
+            appId: "1:395419982595:web:75f9760221eff40a432736",
+            measurementId: "G-Q2G267QR2V"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let currentTab = 'dashboard';
+        let previousStats = null;
+
+        function initApp() {
+            console.log("Inicializando painel admin TECH SERVICES...");
+            lucide.createIcons();
+            
+            // Acesso direto sem autenticação
+            showMainApp();
+            hideLoading();
+        }
+
+        function showMainApp() {
+            console.log("Mostrando painel admin");
+            document.getElementById('main-app').classList.remove('hidden');
+            loadStats();
+            loadPackages();
+            loadUsers();
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+        }
+
+        function setButtonLoading(buttonId, isLoading) {
+            const button = document.getElementById(buttonId);
+            if (isLoading) {
+                button.classList.add('btn-loading');
+                button.innerHTML = '<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>';
+            } else {
+                button.classList.remove('btn-loading');
+                if (buttonId === 'add-package-btn') {
+                    button.textContent = 'Adicionar Pacote';
+                } else if (buttonId === 'update-package-btn') {
+                    button.textContent = 'Salvar Alterações';
+                }
+            }
+        }
+
+        function showTab(tabName) {
+            currentTab = tabName;
+            document.querySelectorAll('[id^="tab-"]').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById('tab-' + tabName).classList.remove('hidden');
+            
+            document.querySelectorAll('.flex-shrink-0').forEach(btn => {
+                btn.classList.remove('bg-blue-100', 'text-blue-700', 'border-blue-200');
+                btn.classList.add('text-gray-600', 'hover:bg-blue-50', 'hover:text-blue-600');
+            });
+            
+            const activeBtn = document.querySelector(`button[onclick="showTab('${tabName}')"]`);
+            activeBtn.classList.add('bg-blue-100', 'text-blue-700', 'border-blue-200');
+            activeBtn.classList.remove('text-gray-600', 'hover:bg-blue-50', 'hover:text-blue-600');
+        }
+
+        async function loadStats() {
+            try {
+                console.log("Carregando estatísticas...");
+                const usersSnapshot = await db.collection('users').where('role', '==', 'user').get();
+                const totalUsers = usersSnapshot.size;
+                
+                const packagesSnapshot = await db.collection('packages').get();
+                const activePackages = packagesSnapshot.docs.filter(doc => doc.data().active);
+                
+                let totalClicks = 0;
+                let totalRevenue = 0;
+                
+                packagesSnapshot.forEach(doc => {
+                    const pkg = doc.data();
+                    const clicks = pkg.clicks || 0;
+                    totalClicks += clicks;
+                    totalRevenue += pkg.price * clicks;
+                });
+                
+                const currentStats = {
+                    users: totalUsers,
+                    packages: activePackages.length,
+                    clicks: totalClicks,
+                    revenue: totalRevenue
+                };
+                
+                if (previousStats) {
+                    const usersChange = previousStats.users > 0 ? 
+                        Math.round(((currentStats.users - previousStats.users) / previousStats.users) * 100) : 0;
+                    const packagesChange = previousStats.packages > 0 ? 
+                        Math.round(((currentStats.packages - previousStats.packages) / previousStats.packages) * 100) : 0;
+                    const clicksChange = previousStats.clicks > 0 ? 
+                        Math.round(((currentStats.clicks - previousStats.clicks) / previousStats.clicks) * 100) : 0;
+                    const revenueChange = previousStats.revenue > 0 ? 
+                        Math.round(((currentStats.revenue - previousStats.revenue) / previousStats.revenue) * 100) : 0;
+                    
+                    document.getElementById('users-change').textContent = `${usersChange >= 0 ? '+' : ''}${usersChange}%`;
+                    document.getElementById('packages-change').textContent = `${packagesChange >= 0 ? '+' : ''}${packagesChange}%`;
+                    document.getElementById('clicks-change').textContent = `${clicksChange >= 0 ? '+' : ''}${clicksChange}%`;
+                    document.getElementById('revenue-change').textContent = `${revenueChange >= 0 ? '+' : ''}${revenueChange}%`;
+                } else {
+                    document.getElementById('users-change').textContent = '+0%';
+                    document.getElementById('packages-change').textContent = '+0%';
+                    document.getElementById('clicks-change').textContent = '+0%';
+                    document.getElementById('revenue-change').textContent = '+0%';
+                }
+                
+                document.getElementById('total-users').textContent = currentStats.users;
+                document.getElementById('users-count').textContent = `${currentStats.users} usuários`;
+                document.getElementById('active-packages').textContent = currentStats.packages;
+                document.getElementById('total-clicks').textContent = currentStats.clicks;
+                document.getElementById('total-revenue').textContent = currentStats.revenue.toLocaleString('pt-PT') + ' MT';
+                
+                previousStats = currentStats;
+                console.log("Estatísticas carregadas com sucesso");
+
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+            }
+        }
+
+        function loadPackages() {
+            console.log("Carregando pacotes...");
+            db.collection('packages').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+                const table = document.getElementById('packages-table');
+                const topPackagesContainer = document.getElementById('top-packages');
+                table.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    table.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500"><i data-lucide="package" class="w-8 h-8 mx-auto mb-2"></i><p>Nenhum pacote encontrado</p></td></tr>';
+                    topPackagesContainer.innerHTML = '<div class="text-center py-8 text-gray-500"><i data-lucide="package" class="w-12 h-12 mx-auto mb-3 text-gray-400"></i><p>Nenhum pacote disponível</p></div>';
+                    return;
+                }
+                
+                const packages = [];
+                snapshot.forEach((doc) => {
+                    packages.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Top Packages para Dashboard
+                const topPackages = [...packages]
+                    .filter(pkg => pkg.active)
+                    .sort((a, b) => (b.clicks || 0) - (a.clicks || 0))
+                    .slice(0, 3);
+                
+                if (topPackages.length > 0) {
+                    topPackagesContainer.innerHTML = '';
+                    topPackages.forEach((pkg, index) => {
+                        const packageHTML = `
+                            <div class="flex items-center justify-between p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition-all">
+                                <div class="flex items-center space-x-4">
+                                    <div class="w-10 h-10 ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-orange-500'} rounded-full flex items-center justify-center text-white font-bold text-lg">${index + 1}</div>
+                                    <div>
+                                        <p class="font-semibold text-gray-900">${pkg.category}: ${pkg.data}GB</p>
+                                        <p class="text-sm text-gray-600">${pkg.period} • ${pkg.clicks || 0} cliques</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-bold text-gray-900 text-lg">${(pkg.price * (pkg.clicks || 0)).toLocaleString('pt-PT')} MT</p>
+                                    <p class="text-sm text-gray-600">receita potencial</p>
+                                </div>
+                            </div>
+                        `;
+                        topPackagesContainer.innerHTML += packageHTML;
+                    });
+                }
+                
+                // Tabela de Pacotes
+                packages.forEach((pkg) => {
+                    const row = `
+                        <tr class="hover:bg-blue-50 transition-all">
+                            <td class="px-4 py-3">
+                                <div class="flex items-center">
+                                    <span class="text-xl mr-3">${pkg.icon || '📦'}</span>
+                                    ${pkg.category}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 font-medium">${pkg.data}GB</td>
+                            <td class="px-4 py-3">${pkg.period}</td>
+                            <td class="px-4 py-3 font-bold text-blue-600">${pkg.price.toLocaleString('pt-PT')} MT</td>
+                            <td class="px-4 py-3">
+                                <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">${pkg.clicks || 0}</span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-3 py-1 text-xs font-semibold rounded-full ${pkg.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                    ${pkg.active ? 'Ativo' : 'Inativo'}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <button onclick="editPackage('${pkg.id}')" class="text-blue-600 hover:text-blue-900 mr-3 p-2 rounded-lg hover:bg-blue-100 transition-all" title="Editar">
+                                    <i data-lucide="edit" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="togglePackage('${pkg.id}', ${!pkg.active})" class="text-gray-600 hover:text-gray-900 mr-3 p-2 rounded-lg hover:bg-gray-100 transition-all" title="${pkg.active ? 'Desativar' : 'Ativar'}">
+                                    <i data-lucide="${pkg.active ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deletePackage('${pkg.id}')" class="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition-all" title="Excluir">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    table.innerHTML += row;
+                });
+                
+                lucide.createIcons();
+                console.log("Pacotes carregados:", packages.length);
+            }, (error) => {
+                console.error('Erro ao carregar pacotes:', error);
+            });
+        }
+
+        function loadUsers() {
+            console.log("Carregando usuários...");
+            db.collection('users').where('role', '==', 'user').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+                const table = document.getElementById('users-table');
+                table.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    table.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500"><i data-lucide="users" class="w-8 h-8 mx-auto mb-2"></i><p>Nenhum usuário encontrado</p></td></tr>';
+                    return;
+                }
+                
+                snapshot.forEach((doc) => {
+                    const user = doc.data();
+                    const isBlocked = user.blocked || false;
+                    
+                    const row = `
+                        <tr class="hover:bg-blue-50 transition-all">
+                            <td class="px-4 py-3 font-medium">${user.name}</td>
+                            <td class="px-4 py-3">${user.phone}</td>
+                            <td class="px-4 py-3">${user.email}</td>
+                            <td class="px-4 py-3">
+                                <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">${user.province}</span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-3 py-1 text-xs font-semibold rounded-full ${isBlocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                                    ${isBlocked ? 'Bloqueado' : 'Ativo'}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                ${isBlocked ? 
+                                    `<button onclick="toggleUserStatus('${doc.id}', false)" class="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-100 transition-all" title="Ativar usuário">
+                                        <i data-lucide="user-check" class="w-4 h-4"></i>
+                                    </button>` : 
+                                    `<button onclick="toggleUserStatus('${doc.id}', true)" class="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition-all" title="Bloquear usuário">
+                                        <i data-lucide="user-x" class="w-4 h-4"></i>
+                                    </button>`
+                                }
+                            </td>
+                        </tr>
+                    `;
+                    table.innerHTML += row;
+                });
+                
+                lucide.createIcons();
+                console.log("Usuários carregados:", snapshot.size);
+            }, (error) => {
+                console.error('Erro ao carregar usuários:', error);
+            });
+        }
+
+        async function toggleUserStatus(userId, block) {
+            try {
+                await db.collection('users').doc(userId).update({
+                    blocked: block,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                alert(`Usuário ${block ? 'bloqueado' : 'desbloqueado'} com sucesso!`);
+            } catch (error) {
+                alert('Erro ao atualizar status do usuário: ' + error.message);
+            }
+        }
+
+        function showAddPackageModal() {
+            document.getElementById('add-package-modal').classList.remove('hidden');
+        }
+
+        function hideAddPackageModal() {
+            document.getElementById('add-package-modal').classList.add('hidden');
+        }
+
+        async function addPackage() {
+            const category = document.getElementById('package-category').value;
+            const data = document.getElementById('package-data').value;
+            const period = document.getElementById('package-period').value;
+            const price = parseInt(document.getElementById('package-price').value);
+            const icon = document.getElementById('package-icon').value || '📦';
+            const active = document.getElementById('package-active').checked;
+
+            if (!data || !period || !price) {
+                alert('Por favor, preencha todos os campos obrigatórios');
+                return;
+            }
+
+            if (price <= 0) {
+                alert('O preço deve ser maior que zero');
+                return;
+            }
+
+            setButtonLoading('add-package-btn', true);
+
+            try {
+                console.log("Adicionando novo pacote...");
+                await db.collection('packages').add({
+                    category: category,
+                    data: data,
+                    period: period,
+                    price: price,
+                    icon: icon,
+                    active: active,
+                    clicks: 0,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdBy: 'admin-panel'
+                });
+                
+                hideAddPackageModal();
+                // Limpar formulário
+                document.getElementById('package-data').value = '';
+                document.getElementById('package-period').value = '';
+                document.getElementById('package-price').value = '';
+                document.getElementById('package-icon').value = '📦';
+                document.getElementById('package-active').checked = true;
+                
+                alert('✅ Pacote adicionado com sucesso! Agora aparecerá no app dos usuários.');
+                console.log("Pacote adicionado com sucesso");
+                
+            } catch (error) {
+                console.error("Erro ao adicionar pacote:", error);
+                alert('Erro ao adicionar pacote: ' + error.message);
+            } finally {
+                setButtonLoading('add-package-btn', false);
+            }
+        }
+
+        async function editPackage(packageId) {
+            try {
+                const doc = await db.collection('packages').doc(packageId).get();
+                if (doc.exists) {
+                    const pkg = doc.data();
+                    document.getElementById('edit-package-id').value = packageId;
+                    document.getElementById('edit-package-category').value = pkg.category;
+                    document.getElementById('edit-package-data').value = pkg.data;
+                    document.getElementById('edit-package-period').value = pkg.period;
+                    document.getElementById('edit-package-price').value = pkg.price;
+                    document.getElementById('edit-package-icon').value = pkg.icon || '';
+                    document.getElementById('edit-package-active').checked = pkg.active;
+                    
+                    document.getElementById('edit-package-modal').classList.remove('hidden');
+                }
+            } catch (error) {
+                alert('Erro ao carregar pacote: ' + error.message);
+            }
+        }
+
+        function hideEditPackageModal() {
+            document.getElementById('edit-package-modal').classList.add('hidden');
+        }
+
+        async function updatePackage() {
+            const packageId = document.getElementById('edit-package-id').value;
+            const category = document.getElementById('edit-package-category').value;
+            const data = document.getElementById('edit-package-data').value;
+            const period = document.getElementById('edit-package-period').value;
+            const price = parseInt(document.getElementById('edit-package-price').value);
+            const icon = document.getElementById('edit-package-icon').value || '📦';
+            const active = document.getElementById('edit-package-active').checked;
+
+            if (!data || !period || !price) {
+                alert('Por favor, preencha todos os campos obrigatórios');
+                return;
+            }
+
+            if (price <= 0) {
+                alert('O preço deve ser maior que zero');
+                return;
+            }
+
+            setButtonLoading('update-package-btn', true);
+
+            try {
+                await db.collection('packages').doc(packageId).update({
+                    category: category,
+                    data: data,
+                    period: period,
+                    price: price,
+                    icon: icon,
+                    active: active,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                hideEditPackageModal();
+                alert('✅ Pacote atualizado com sucesso!');
+                console.log("Pacote atualizado:", packageId);
+                
+            } catch (error) {
+                console.error("Erro ao atualizar pacote:", error);
+                alert('Erro ao atualizar pacote: ' + error.message);
+            } finally {
+                setButtonLoading('update-package-btn', false);
+            }
+        }
+
+        async function togglePackage(packageId, active) {
+            try {
+                await db.collection('packages').doc(packageId).update({
+                    active: active,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                alert(`Pacote ${active ? 'ativado' : 'desativado'} com sucesso!`);
+                console.log(`Pacote ${packageId} ${active ? 'ativado' : 'desativado'}`);
+            } catch (error) {
+                alert('Erro ao atualizar pacote: ' + error.message);
+            }
+        }
+
+        async function deletePackage(packageId) {
+            if (confirm('Tem certeza que deseja excluir este pacote? Esta ação não pode ser desfeita.')) {
+                try {
+                    await db.collection('packages').doc(packageId).delete();
+                    alert('Pacote excluído com sucesso!');
+                    console.log("Pacote excluído:", packageId);
+                } catch (error) {
+                    alert('Erro ao excluir pacote: ' + error.message);
+                }
+            }
+        }
+
+        function refreshData() {
+            loadStats();
+            loadPackages();
+            loadUsers();
+            
+            const refreshBtn = document.querySelector('[onclick="refreshData()"]');
+            refreshBtn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 animate-spin"></i>';
+            setTimeout(() => {
+                refreshBtn.innerHTML = '<i data-lucide="refresh-cw" class="w-5 h-5"></i>';
+                lucide.createIcons();
+            }, 1000);
+        }
+
+        // Inicializar a aplicação quando a página carregar
+        window.addEventListener('load', function() {
+            console.log("Página admin carregada, inicializando...");
+            initApp();
+        });
+    </script>
+</body>
+</html>
